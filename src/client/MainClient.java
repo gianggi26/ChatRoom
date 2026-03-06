@@ -1,5 +1,4 @@
 package client;
-
 import client_gui.LoginFrame;
 
 public class MainClient {
