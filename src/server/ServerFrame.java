@@ -81,6 +81,7 @@ public class ServerFrame extends JFrame {
             startButton.setEnabled(true); stopButton.setEnabled(false); portField.setEditable(true);
         } catch (IOException e) {}
     }
+    
 
     public static void updateLog(String message) {
         SwingUtilities.invokeLater(() -> {
