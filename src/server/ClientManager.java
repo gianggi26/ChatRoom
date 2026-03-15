@@ -1,15 +1,8 @@
 package server;
 
 import java.util.Vector;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-/**
- * Manages connected clients.
- */
 public class ClientManager {
-    private static final Logger LOGGER = Logger.getLogger(ClientManager.class.getName());
-
     private static final Vector<ClientHandler> clients = new Vector<>();
 
     public static synchronized void addClient(ClientHandler client) {
@@ -24,7 +17,13 @@ public class ClientManager {
         for (ClientHandler client : clients) {
             client.sendMessage(message);
         }
-        ServerFrame.updateLog("[BROADCAST]: " + message);
+        ServerFrame.updateLog("INFO", "[BROADCAST]: " + message);
+        
+        // --- TÍNH NĂNG MỚI: LƯU LỊCH SỬ CHAT ---
+        // Bỏ qua danh sách user online, bỏ qua file đính kèm và lệnh KICKED
+        if (!message.startsWith("LIST_USERS|") && !message.contains("|FILE_DATA|") && !message.startsWith("KICKED|")) {
+            HistoryManager.saveMessage(message);
+        }
     }
 
     public static synchronized void sendPrivateMessage(String sender, String receiver, String msg) {
@@ -46,7 +45,7 @@ public class ClientManager {
                 break;
             }
         }
-        ServerFrame.updateLog("🔒 [TIN RIÊNG] " + sender + " -> " + receiver + ": " + msg);
+        ServerFrame.updateLog("WARN", "🔒 [TIN RIÊNG] " + sender + " -> " + receiver + ": " + msg);
     }
 
     public static synchronized void kickUser(String adminName, String targetName) {
@@ -62,7 +61,7 @@ public class ClientManager {
             targetClient.sendMessage("KICKED|❌ Bạn đã bị Admin đuổi khỏi phòng chat!");
             targetClient.disconnect();
             broadcast("⚠️ Hệ thống: [" + targetName + "] đã bị Admin mời ra khỏi phòng!");
-            ServerFrame.updateLog("⚠️ [ADMIN] " + adminName + " đã kick " + targetName);
+            ServerFrame.updateLog("WARN", "⚠️ [ADMIN] " + adminName + " đã kick " + targetName);
         } else {
             for (ClientHandler client : clients) {
                 if (client.getUsername().equalsIgnoreCase(adminName)) {
@@ -71,6 +70,14 @@ public class ClientManager {
                 }
             }
         }
+    }
+
+    public static synchronized void kickAll() {
+        for (ClientHandler client : clients) {
+            client.sendMessage("KICKED|Server đã đóng cửa. Vui lòng thoát!");
+            client.disconnect();
+        }
+        clients.clear();
     }
 
     public static synchronized String getOnlineUsers() {
