@@ -65,7 +65,7 @@ public class ClientHandler extends Thread {
 
             ClientManager.addClient(this);
             String roleStr = username.equalsIgnoreCase("admin") ? " (Admin)" : "";
-            ClientManager.broadcast("🟢 " + username + roleStr + " đã tham gia phòng chat");
+            ClientManager.broadcast( username + roleStr + " đã tham gia phòng chat");
             ServerFrame.updateLog("INFO", "⚡ Đăng nhập thành công: " + username + roleStr);
             ClientManager.broadcast(ClientManager.getOnlineUsers());
 
@@ -98,9 +98,9 @@ public class ClientHandler extends Thread {
         } finally {
             if (username != null) {
                 ClientManager.removeClient(this);
-                ClientManager.broadcast("🔴 " + username + " đã rời phòng");
+                ClientManager.broadcast( username + " đã rời phòng");
                 ClientManager.broadcast(ClientManager.getOnlineUsers());
-                ServerFrame.updateLog("WARN", "🔴 Client thoát: " + username);
+                ServerFrame.updateLog("WARN", " Client thoát: " + username);
             }
             disconnect();
         }

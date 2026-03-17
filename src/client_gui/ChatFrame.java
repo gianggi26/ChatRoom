@@ -113,11 +113,10 @@ public class ChatFrame extends JFrame {
         toolBar.setBackground(Color.WHITE);
         toolBar.setBorder(new EmptyBorder(8, 15, 0, 15));
 
-        // Nút công cụ có hiệu ứng Hover màu xám nhẹ
-        HoverIconButton emojiBtn = new HoverIconButton("😀 Biểu tượng");
+        HoverIconButton emojiBtn = new HoverIconButton("Biểu tượng");
         emojiBtn.addActionListener(e -> showEmojiPicker());
         
-        HoverIconButton fileBtn = new HoverIconButton("📎 Đính kèm");
+        HoverIconButton fileBtn = new HoverIconButton("Đính kèm");
         fileBtn.addActionListener(e -> selectAndSendFile(client));
         
         toolBar.add(emojiBtn);
@@ -129,7 +128,6 @@ public class ChatFrame extends JFrame {
 
         inputField.setFont(new Font("SansSerif", Font.PLAIN, 15));
 
-        // Nút GỬI dáng Pill với hiệu ứng Hover
         ModernButton btnSend = new ModernButton("GỬI", primaryColor, primaryHover);
         btnSend.setPreferredSize(new Dimension(90, 45));
         
@@ -162,10 +160,9 @@ public class ChatFrame extends JFrame {
         setVisible(true);
     }
 
-    // TẠO AVATAR HÌNH TRÒN HOÀN HẢO
     private ImageIcon generateAvatar(String name) {
         if (userAvatars.containsKey(name)) return userAvatars.get(name);
-        int size = 42; // Căn chỉnh lại size cho tinh tế
+        int size = 42; 
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = img.createGraphics();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -236,11 +233,26 @@ public class ChatFrame extends JFrame {
         }).start();
     }
 
-    // XỬ LÝ HIỂN THỊ TIN NHẮN (Bong bóng Bóng đổ + Timestamp)
+    // ================================================================
+    // HÀM XỬ LÝ HIỂN THỊ TIN NHẮN ĐÃ ĐƯỢC TỐI ƯU VÀ FIX LỖI THỜI GIAN
+    // ================================================================
     private void parseAndDisplayMessage(String msg) {
         SwingUtilities.invokeLater(() -> {
-            boolean isSystem = msg.startsWith("🟢") || msg.startsWith("🔴") || msg.startsWith("⚠️") || msg.startsWith("❌") || msg.startsWith("📝") || msg.startsWith("🔒");
-            if (isSystem) {
+            // 1. Xử lý dòng phân cách lịch sử gọn gàng
+            if (msg.contains("--- Gần đây nhất ---")) {
+                JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                row.setBackground(bgMain);
+                JLabel lblSys = new JLabel("--- Gần đây nhất ---");
+                lblSys.setFont(new Font("Segoe UI", Font.ITALIC, 13));
+                lblSys.setForeground(textSystem);
+                row.add(lblSys);
+                addBubbleToPanel(row);
+                return;
+            }
+
+            // 2. Lọc các thông báo cũ bị lỗi emoji từ trước
+            boolean isSystemOld = msg.startsWith("🟢") || msg.startsWith("🔴") || msg.startsWith("⚠️") || msg.startsWith("❌") || msg.startsWith("📝") || msg.startsWith("🔒");
+            if (isSystemOld) {
                 String cleanMsg = msg.substring(1).trim(); 
                 JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER));
                 row.setBackground(bgMain);
@@ -257,36 +269,66 @@ public class ChatFrame extends JFrame {
             String senderName = "System";
             String content = msg;
             String headerText = ""; 
+            String timeStr = "";
 
+            // 3. Phân tách người gửi và nội dung
             if (msg.startsWith("[Tin riêng từ ")) {
                 isPrivate = true;
-                int colonIdx = msg.indexOf("]: ");
+                int colonIdx = content.indexOf("]: ");
                 if (colonIdx != -1) {
-                    senderName = msg.substring(14, colonIdx); 
-                    content = msg.substring(colonIdx + 3);
+                    senderName = content.substring(14, colonIdx); 
+                    content = content.substring(colonIdx + 3);
                     headerText = "🔒 Tin mật từ " + senderName;
                 }
             } else if (msg.startsWith("[Bạn -> ")) {
                 isPrivate = true;
                 isOwnMessage = true;
-                int colonIdx = msg.indexOf("]: ");
+                int colonIdx = content.indexOf("]: ");
                 if (colonIdx != -1) {
                     senderName = currentUser;
-                    String target = msg.substring(8, colonIdx);
-                    content = msg.substring(colonIdx + 3);
+                    String target = content.substring(8, colonIdx);
+                    content = content.substring(colonIdx + 3);
                     headerText = "🔒 Gửi mật cho " + target;
                 }
-            } else if (msg.startsWith(currentUser + ": ")) {
+            } else if (content.startsWith(currentUser + ": ")) {
                 isOwnMessage = true;
                 senderName = currentUser;
-                content = msg.substring(currentUser.length() + 2);
-            } else if (msg.contains(": ")) {
-                int colonIdx = msg.indexOf(": ");
-                senderName = msg.substring(0, colonIdx);
-                content = msg.substring(colonIdx + 2);
+                content = content.substring(currentUser.length() + 2).trim();
+            } else if (content.contains(": ") && !content.startsWith("[")) {
+                int colonIdx = content.indexOf(": ");
+                senderName = content.substring(0, colonIdx);
+                content = content.substring(colonIdx + 2).trim();
                 headerText = senderName; 
             }
 
+            // 4. THUẬT TOÁN BÓC TÁCH THỜI GIAN TỪ DATABASE GỬI LÊN
+            if (content.startsWith("[")) {
+                int endBracket = content.indexOf("]");
+                // Xác nhận định dạng [hh:mm a] (ví dụ: [06:14 PM] dài 10 ký tự)
+                if (endBracket > 0 && endBracket <= 12) {
+                    timeStr = content.substring(1, endBracket); // Lấy được "06:14 PM"
+                    content = content.substring(endBracket + 1).trim(); // Bỏ giờ ra khỏi nội dung chính
+                }
+            }
+
+            // Nếu không tìm thấy giờ từ DB (đây là tin nhắn gửi trực tiếp), mới dùng đồng hồ máy tính
+            if (timeStr.isEmpty()) {
+                timeStr = new SimpleDateFormat("hh:mm a").format(new Date());
+            }
+
+            // 5. Vẽ thông báo hệ thống (như "admin đã rời phòng")
+            if (senderName.equals("System")) {
+                 JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                 row.setBackground(bgMain);
+                 JLabel lblSys = new JLabel(content + " (" + timeStr + ")");
+                 lblSys.setFont(new Font("Segoe UI", Font.ITALIC, 13));
+                 lblSys.setForeground(textSystem);
+                 row.add(lblSys);
+                 addBubbleToPanel(row);
+                 return;
+            }
+
+            // 6. Vẽ bong bóng Chat
             int bubbleWidth = Math.min(content.length() * 9, 350);
             if (bubbleWidth < 40) bubbleWidth = 40;
             String htmlText = "<html><div style='width: %dpx; font-family: \"Segoe UI Emoji\", sans-serif; line-height: 1.4;'>%s</div></html>";
@@ -302,13 +344,12 @@ public class ChatFrame extends JFrame {
 
             JLabel avatarLabel = new JLabel(generateAvatar(senderName.replace(" (Admin)", "")));
             avatarLabel.setBorder(new EmptyBorder(0, isOwnMessage ? 12 : 0, 0, isOwnMessage ? 0 : 12));
-            avatarLabel.setVerticalAlignment(SwingConstants.TOP); // Căn avatar lên trên cùng
+            avatarLabel.setVerticalAlignment(SwingConstants.TOP);
 
             JPanel bubbleContentWrapper = new JPanel();
             bubbleContentWrapper.setLayout(new BoxLayout(bubbleContentWrapper, BoxLayout.Y_AXIS));
             bubbleContentWrapper.setOpaque(false);
             
-            // Header: Tên người gửi
             if (headerText != null && !headerText.isEmpty()) {
                 JLabel lblName = new JLabel(headerText);
                 lblName.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -319,14 +360,11 @@ public class ChatFrame extends JFrame {
                 bubbleContentWrapper.add(nameRow);
             }
             
-            // Body: Bubble Chat
             JPanel bubbleRow = new JPanel(new FlowLayout(isOwnMessage ? FlowLayout.RIGHT : FlowLayout.LEFT, 0, 0));
             bubbleRow.setOpaque(false);
             bubbleRow.add(bubble);
             bubbleContentWrapper.add(bubbleRow);
 
-            // Footer: Timestamp (Thời gian gửi)
-            String timeStr = new SimpleDateFormat("hh:mm a").format(new Date());
             JLabel lblTime = new JLabel(timeStr);
             lblTime.setFont(new Font("Segoe UI", Font.PLAIN, 10));
             lblTime.setForeground(new Color(156, 163, 175));
@@ -501,7 +539,6 @@ public class ChatFrame extends JFrame {
     // CÁC CLASS ĐỒ HỌA (UI COMPONENTS) NÂNG CAO - CSS TO JAVA
     // =========================================================
 
-    // 1. Bong bóng Chat nổi 3D (Neumorphism Drop-Shadow)
     class ChatBubble extends JPanel {
         private boolean isOwn;
         private boolean isPrivate;
@@ -521,11 +558,9 @@ public class ChatFrame extends JFrame {
             Graphics2D g2d = (Graphics2D) g;
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             
-            // Vẽ Bóng đổ (Soft drop shadow)
             g2d.setColor(new Color(0, 0, 0, 15)); 
             g2d.fill(new RoundRectangle2D.Double(2, 3, getWidth()-2, getHeight()-2, 22, 22));
 
-            // Vẽ màu nền Bubble chính
             if (isPrivate) g2d.setColor(privateColor);
             else if (isOwn) g2d.setColor(primaryColor);
             else g2d.setColor(Color.WHITE);
@@ -535,7 +570,6 @@ public class ChatFrame extends JFrame {
         }
     }
 
-    // 2. Ô nhập liệu dáng Pill (Bo tròn tuyệt đối) không viền đen
     class ModernTextField extends JTextField {
         private String placeholder;
         public ModernTextField(String placeholder) {
@@ -547,8 +581,7 @@ public class ChatFrame extends JFrame {
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(241, 245, 249)); // Nền xám cực nhạt
-            // Sử dụng getHeight() làm góc bo để tạo thành hình Pill
+            g2.setColor(new Color(241, 245, 249));
             g2.fill(new RoundRectangle2D.Double(0, 0, getWidth()-1, getHeight()-1, getHeight(), getHeight()));
             super.paintComponent(g);
             g2.dispose();
@@ -568,7 +601,6 @@ public class ChatFrame extends JFrame {
         }
     }
 
-    // 3. Nút GỬI có hiệu ứng Hover
     class ModernButton extends JButton {
         private Color normalColor;
         private Color hoverColor;
@@ -595,13 +627,12 @@ public class ChatFrame extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(isHovered ? hoverColor : normalColor);
-            g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), getHeight(), getHeight())); // Dáng Pill
+            g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), getHeight(), getHeight())); 
             super.paintComponent(g);
             g2.dispose();
         }
     }
 
-    // 4. Nút Icon trong suốt có Hover nhạt
     class HoverIconButton extends JButton {
         private boolean isHovered = false;
         public HoverIconButton(String text) {
@@ -624,7 +655,7 @@ public class ChatFrame extends JFrame {
             if (isHovered) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(241, 245, 249)); // Đổ nền xám nhạt khi đưa chuột vào
+                g2.setColor(new Color(241, 245, 249)); 
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
                 g2.dispose();
             }
