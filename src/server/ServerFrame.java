@@ -303,7 +303,6 @@ public class ServerFrame extends JFrame {
             super.paintComponent(g);
         }
     }
-
     static class ModernScrollBarUI extends BasicScrollBarUI {
         @Override protected void configureScrollBarColors() { this.thumbColor = new Color(71, 85, 105); this.trackColor = new Color(15, 23, 42); }
         @Override protected JButton createDecreaseButton(int orientation) { return createZeroButton(); }

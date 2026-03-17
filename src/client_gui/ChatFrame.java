@@ -278,7 +278,7 @@ public class ChatFrame extends JFrame {
                 if (colonIdx != -1) {
                     senderName = content.substring(14, colonIdx); 
                     content = content.substring(colonIdx + 3);
-                    headerText = "🔒 Tin mật từ " + senderName;
+                    headerText = " Tin mật từ " + senderName;
                 }
             } else if (msg.startsWith("[Bạn -> ")) {
                 isPrivate = true;
@@ -288,7 +288,7 @@ public class ChatFrame extends JFrame {
                     senderName = currentUser;
                     String target = content.substring(8, colonIdx);
                     content = content.substring(colonIdx + 3);
-                    headerText = "🔒 Gửi mật cho " + target;
+                    headerText = " Gửi mật cho " + target;
                 }
             } else if (content.startsWith(currentUser + ": ")) {
                 isOwnMessage = true;
@@ -435,11 +435,11 @@ public class ChatFrame extends JFrame {
 
                 if (senderInfo.contains("[Tin riêng từ ")) {
                     senderName = senderInfo.substring(senderInfo.indexOf("từ ") + 3, senderInfo.indexOf("]"));
-                    headerText = "🔒 File mật từ " + senderName;
+                    headerText = " File mật từ " + senderName;
                 } else if (senderInfo.contains("[Bạn -> ")) {
                     senderName = currentUser;
                     String target = senderInfo.substring(senderInfo.indexOf("-> ") + 3, senderInfo.indexOf("]"));
-                    headerText = "🔒 Gửi file mật cho " + target;
+                    headerText = "Gửi file mật cho " + target;
                 } else if (senderInfo.equals(currentUser)) {
                     senderName = currentUser;
                 } else {
