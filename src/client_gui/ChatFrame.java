@@ -89,6 +89,17 @@ public class ChatFrame extends JFrame {
         chatTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         chatTitle.setForeground(new Color(30, 41, 59));
         chatHeader.add(chatTitle, BorderLayout.WEST);
+     // --- ĐOẠN CODE MỚI THÊM VÀO: Nút Xóa màn hình Chat ---
+        HoverIconButton btnClearChat = new HoverIconButton("Xóa màn hình");
+        btnClearChat.setForeground(new Color(239, 68, 68)); // Cài màu đỏ cho nút xóa
+        btnClearChat.addActionListener(e -> {
+            // Lệnh xóa sạch toàn bộ bong bóng chat trên màn hình
+            messagePanel.removeAll();
+            messagePanel.revalidate();
+            messagePanel.repaint();
+        });
+        chatHeader.add(btnClearChat, BorderLayout.EAST); // Gắn nút này vào bên phải Header
+        // ------------------------------------------------------
 
         messagePanel.setLayout(new BoxLayout(messagePanel, BoxLayout.Y_AXIS));
         messagePanel.setBackground(bgMain);
