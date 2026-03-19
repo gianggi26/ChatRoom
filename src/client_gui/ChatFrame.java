@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ChatFrame extends JFrame {
-    // THÊM BIẾN NÀY ĐỂ CÁC HÀM CON CÓ THỂ GỌI ĐƯỢC CLIENT
     private ChatClient client;
 
     private JPanel messagePanel = new JPanel();
@@ -38,7 +37,7 @@ public class ChatFrame extends JFrame {
     private Map<String, ImageIcon> userAvatars = new HashMap<>();
 
     public ChatFrame(ChatClient client, String username) {
-        this.client = client; // GÁN BIẾN CLIENT Ở ĐÂY
+        this.client = client;
         this.currentUser = username;
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
 
@@ -95,13 +94,13 @@ public class ChatFrame extends JFrame {
         chatHeader.add(chatTitle, BorderLayout.WEST);
 
         // --- Nút Xóa màn hình Chat ---
-        HoverIconButton btnClearChat = new HoverIconButton("Xóa tin nhắn");
+        HoverIconButton btnClearChat = new HoverIconButton("Xóa màn hình");
         btnClearChat.setForeground(new Color(239, 68, 68));
         btnClearChat.addActionListener(e -> {
             messagePanel.removeAll();
             messagePanel.revalidate();
             messagePanel.repaint();
-            // Gửi tín hiệu xóa UI lên Server để cập nhật DB
+            // Gửi lệnh ngầm lên Server
             this.client.sendMessage("/clear_history");
         });
         chatHeader.add(btnClearChat, BorderLayout.EAST);
@@ -119,7 +118,7 @@ public class ChatFrame extends JFrame {
         mainChatPanel.add(scrollChat, BorderLayout.CENTER);
 
         // ==========================================
-        // 3. INPUT BAR (THANH NHẬP LIỆN HIỆN ĐẠI)
+        // 3. INPUT BAR (THANH NHẬP LIỆU HIỆN ĐẠI)
         // ==========================================
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.setBackground(Color.WHITE);
@@ -167,7 +166,6 @@ public class ChatFrame extends JFrame {
             if (!e.getValueIsAdjusting() && userList.getSelectedValue() != null) {
                 String target = userList.getSelectedValue().replace(" (Admin)", "");
 
-                // Ngăn tự click vào tên mình để gửi riêng
                 if (target.equalsIgnoreCase(currentUser)) {
                     userList.clearSelection();
                     return;
@@ -249,7 +247,6 @@ public class ChatFrame extends JFrame {
                         JOptionPane.showMessageDialog(this, message.substring(7), "Ngắt kết nối", JOptionPane.ERROR_MESSAGE);
                         System.exit(0);
                     } else if (message.startsWith("REVOKE_UI|")) {
-                        // BẮT SỰ KIỆN XÓA GIAO DIỆN TỪ SERVER KHI CÓ NGƯỜI THU HỒI
                         String targetRawMsg = message.substring(10);
                         SwingUtilities.invokeLater(() -> {
                             Component[] comps = messagePanel.getComponents();
@@ -282,12 +279,15 @@ public class ChatFrame extends JFrame {
     }
 
     // ================================================================
-    // HÀM XỬ LÝ HIỂN THỊ TIN NHẮN
+    // HÀM XỬ LÝ HIỂN THỊ TIN NHẮN (ĐÃ FIX LỖI KÉO GIÃN CHIỀU CAO)
     // ================================================================
     private void parseAndDisplayMessage(String msg) {
         SwingUtilities.invokeLater(() -> {
             if (msg.contains("--- Gần đây nhất ---")) {
-                JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER)) {
+                    // FIX: KHÓA CHIỀU CAO TỐI ĐA BẰNG KÍCH THƯỚC THẬT
+                    @Override public Dimension getMaximumSize() { return new Dimension(super.getMaximumSize().width, getPreferredSize().height); }
+                };
                 row.setBackground(bgMain);
                 JLabel lblSys = new JLabel("--- Gần đây nhất ---");
                 lblSys.setFont(new Font("Segoe UI", Font.ITALIC, 13));
@@ -300,7 +300,9 @@ public class ChatFrame extends JFrame {
             boolean isSystemOld = msg.startsWith("🟢") || msg.startsWith("🔴") || msg.startsWith("⚠️") || msg.startsWith("❌") || msg.startsWith("📝") || msg.startsWith("🔒");
             if (isSystemOld) {
                 String cleanMsg = msg.substring(1).trim();
-                JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER)) {
+                    @Override public Dimension getMaximumSize() { return new Dimension(super.getMaximumSize().width, getPreferredSize().height); }
+                };
                 row.setBackground(bgMain);
                 JLabel lblSys = new JLabel(cleanMsg);
                 lblSys.setFont(new Font("Segoe UI", Font.ITALIC, 13));
@@ -359,7 +361,9 @@ public class ChatFrame extends JFrame {
             }
 
             if (senderName.equals("System")) {
-                JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER)) {
+                    @Override public Dimension getMaximumSize() { return new Dimension(super.getMaximumSize().width, getPreferredSize().height); }
+                };
                 row.setBackground(bgMain);
                 JLabel lblSys = new JLabel(content + " (" + timeStr + ")");
                 lblSys.setFont(new Font("Segoe UI", Font.ITALIC, 13));
@@ -378,8 +382,10 @@ public class ChatFrame extends JFrame {
 
             ChatBubble bubble = new ChatBubble(lblText, isOwnMessage, isPrivate);
 
-            // LƯU VẾT BẰNG ROW NAME ĐỂ TÌM VÀ XÓA KHI CÓ LỆNH THU HỒI
-            JPanel row = new JPanel(new BorderLayout());
+            // FIX KÉO GIÃN KHUNG CHAT CHÍNH
+            JPanel row = new JPanel(new BorderLayout()) {
+                @Override public Dimension getMaximumSize() { return new Dimension(super.getMaximumSize().width, getPreferredSize().height); }
+            };
             row.setName(msg);
             row.setBackground(bgMain);
             row.setBorder(new EmptyBorder(8, 0, 8, 0));
@@ -537,8 +543,11 @@ public class ChatFrame extends JFrame {
 
                 ChatBubble bubble = new ChatBubble(attachmentComp, isOwnMessage, isPrivate);
 
-                JPanel row = new JPanel(new BorderLayout());
-                row.setName(message); // LƯU VẾT CHO FILE
+                // FIX KÉO GIÃN KHUNG FILE
+                JPanel row = new JPanel(new BorderLayout()) {
+                    @Override public Dimension getMaximumSize() { return new Dimension(super.getMaximumSize().width, getPreferredSize().height); }
+                };
+                row.setName(message);
                 row.setBackground(bgMain);
                 row.setBorder(new EmptyBorder(8, 0, 8, 0));
 
