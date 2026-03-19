@@ -2,7 +2,6 @@ package server;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.plaf.basic.BasicButtonUI;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
@@ -14,21 +13,24 @@ import java.util.Date;
 
 public class ServerFrame extends JFrame {
     private static JTextPane logArea = new JTextPane();
-    
-    // Sử dụng Class Ô nhập liệu bo góc mới
     private ModernTextField portField = new ModernTextField("8888");
     
-    // Bỏ hoàn toàn ký hiệu đặc biệt để tránh ô vuông 100%
     private JButton startButton = new ModernRoundedButton("KHỞI ĐỘNG");
     private JButton stopButton = new ModernRoundedButton("DỪNG");
     private JButton restartButton = new ModernRoundedButton("KHỞI ĐỘNG LẠI");
     private JLabel statusLabel = new JLabel("TRẠNG THÁI: ĐANG DỪNG");
     private JPanel statusDot = new JPanel();
 
+    // --- CÁC NHÃN THỐNG KÊ REAL-TIME MỚI ---
+    private JLabel lblUptime = new JLabel("00:00:00");
+    private JLabel lblRam = new JLabel("0 MB");
+    private JLabel lblThreads = new JLabel("0");
+    private Timer statTimer;
+    private int secondsUp = 0;
+
     private ChatServer chatServer;
     private Thread serverThread;
 
-    // Tăng độ tương phản: Màu nền đậm hơn để làm nổi bật Card màu trắng
     private Color bgMain = new Color(210, 220, 233); 
     private Color colorSuccess = new Color(16, 185, 129); 
     private Color colorDanger = new Color(239, 68, 68);   
@@ -99,12 +101,22 @@ public class ServerFrame extends JFrame {
         controlCard.add(stopButton);
         controlCard.add(restartButton);
 
-        // Card 3: Thông số phần cứng 
+        // Card 3: THỐNG KÊ REAL-TIME (Đã thay thế code ảo)
         CardPanel statsCard = new CardPanel();
-        statsCard.setLayout(new GridLayout(3, 1, 0, 8));
-        statsCard.add(createProgressRow("CPU:", "5%", 5, colorSuccess));
-        statsCard.add(createProgressRow("RAM:", "2.1 / 16GB", 15, new Color(59, 130, 246))); 
-        statsCard.add(createProgressRow("Mạng:", "0 B/s", 0, new Color(156, 163, 175))); 
+        statsCard.setLayout(new GridLayout(3, 1, 0, 15));
+        
+        lblUptime.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblUptime.setForeground(colorSuccess);
+        
+        lblRam.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblRam.setForeground(new Color(59, 130, 246));
+        
+        lblThreads.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblThreads.setForeground(colorWarning);
+
+        statsCard.add(createRealStatRow("THỜI GIAN CHẠY:", lblUptime));
+        statsCard.add(createRealStatRow("RAM SỬ DỤNG:", lblRam));
+        statsCard.add(createRealStatRow("LUỒNG XỬ LÝ:", lblThreads));
 
         cardsPanel.add(configCard);
         cardsPanel.add(controlCard);
@@ -143,7 +155,7 @@ public class ServerFrame extends JFrame {
         
         mainContent.add(centerPanel, BorderLayout.CENTER);
 
-        JLabel footerLabel = new JLabel("Hệ điều hành: Windows/Linux | Phiên bản panel: 3.2 | Người dùng: Admin");
+        JLabel footerLabel = new JLabel("Hệ điều hành: Windows/Linux | Phiên bản panel: 3.3 (Real-time Stats) | Người dùng: Admin");
         footerLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         footerLabel.setForeground(new Color(120, 135, 155));
         footerLabel.setHorizontalAlignment(SwingConstants.CENTER);
@@ -168,8 +180,7 @@ public class ServerFrame extends JFrame {
         setVisible(true);
         
         updateLog("INFO", "Hệ thống UI đã được tải thành công.");
-        updateLog("INFO", "Configuration loaded: Port " + portField.getText() + ", Protocol TCP Only");
-        updateLog("WARN", "Hệ thống đang chờ lệnh khởi động...");
+        updateLog("INFO", "Sẵn sàng lắng nghe tại Cổng: " + portField.getText());
     }
 
     private JLabel createLabel(String text) {
@@ -180,39 +191,23 @@ public class ServerFrame extends JFrame {
         return lbl;
     }
 
-    private JPanel createProgressRow(String title, String value, int percent, Color color) {
+    // Hàm tạo giao diện cho Thông số thật
+    private JPanel createRealStatRow(String title, JLabel valueLabel) {
         JPanel panel = new JPanel(new BorderLayout(5, 5));
         panel.setOpaque(false);
         
-        JPanel textPanel = new JPanel(new BorderLayout());
-        textPanel.setOpaque(false);
         JLabel lblTitle = new JLabel(title); 
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblTitle.setForeground(new Color(71, 85, 105));
         
-        JLabel lblValue = new JLabel(value); 
-        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblValue.setForeground(color);
+        panel.add(lblTitle, BorderLayout.WEST);
+        panel.add(valueLabel, BorderLayout.EAST);
         
-        textPanel.add(lblTitle, BorderLayout.WEST);
-        textPanel.add(lblValue, BorderLayout.EAST);
+        JPanel line = new JPanel();
+        line.setBackground(new Color(226, 232, 240)); 
+        line.setPreferredSize(new Dimension(100, 2));
+        panel.add(line, BorderLayout.SOUTH);
         
-        JPanel barPanel = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(226, 232, 240)); 
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), getHeight(), getHeight());
-                g2.setColor(color); 
-                int width = (int) (getWidth() * (percent / 100.0));
-                g2.fillRoundRect(0, 0, width, getHeight(), getHeight(), getHeight());
-            }
-        };
-        barPanel.setPreferredSize(new Dimension(100, 8));
-        barPanel.setOpaque(false);
-        
-        panel.add(textPanel, BorderLayout.NORTH);
-        panel.add(barPanel, BorderLayout.SOUTH);
         return panel;
     }
 
@@ -236,6 +231,27 @@ public class ServerFrame extends JFrame {
         statusLabel.setText("TRẠNG THÁI: ĐANG CHẠY");
         statusLabel.setForeground(colorSuccess);
         statusDot.setBackground(colorSuccess);
+        
+        // --- KHỞI ĐỘNG BỘ ĐẾM THÔNG SỐ (Cập nhật mỗi 1 giây) ---
+        secondsUp = 0;
+        if (statTimer != null) statTimer.stop();
+        statTimer = new Timer(1000, e -> {
+            // 1. Cập nhật thời gian chạy
+            secondsUp++;
+            int h = secondsUp / 3600;
+            int m = (secondsUp % 3600) / 60;
+            int s = secondsUp % 60;
+            lblUptime.setText(String.format("%02d:%02d:%02d", h, m, s));
+            
+            // 2. Cập nhật RAM thực tế đang dùng của Java
+            Runtime rt = Runtime.getRuntime();
+            long usedMB = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
+            lblRam.setText(usedMB + " MB");
+            
+            // 3. Cập nhật Số luồng đang chạy
+            lblThreads.setText(String.valueOf(Thread.activeCount()));
+        });
+        statTimer.start();
     }
 
     private void stopServer() {
@@ -254,6 +270,12 @@ public class ServerFrame extends JFrame {
         statusLabel.setForeground(colorDanger);
         statusDot.setBackground(colorDanger);
         updateLog("ERROR", "SERVER ĐÃ BỊ DỪNG HOẠT ĐỘNG.");
+        
+        // --- DỪNG BỘ ĐẾM THÔNG SỐ ---
+        if (statTimer != null) statTimer.stop();
+        lblUptime.setText("00:00:00");
+        lblRam.setText("0 MB");
+        lblThreads.setText("0");
     }
 
     public static void updateLog(String level, String message) {
@@ -289,20 +311,19 @@ public class ServerFrame extends JFrame {
         updateLog("INFO", message);
     }
 
-    // --- CLASS ĐỒ HỌA ---
-
     class CardPanel extends JPanel {
         public CardPanel() { setOpaque(false); setBorder(new EmptyBorder(18, 18, 18, 18)); }
         @Override protected void paintComponent(Graphics g) {
             Graphics2D g2d = (Graphics2D) g;
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2d.setColor(new Color(0, 0, 0, 10)); // Soft shadow
+            g2d.setColor(new Color(0, 0, 0, 10)); 
             g2d.fill(new RoundRectangle2D.Double(3, 4, getWidth()-6, getHeight()-6, 20, 20));
-            g2d.setColor(Color.WHITE); // Card background
+            g2d.setColor(Color.WHITE); 
             g2d.fill(new RoundRectangle2D.Double(0, 0, getWidth()-4, getHeight()-4, 20, 20));
             super.paintComponent(g);
         }
     }
+
     static class ModernScrollBarUI extends BasicScrollBarUI {
         @Override protected void configureScrollBarColors() { this.thumbColor = new Color(71, 85, 105); this.trackColor = new Color(15, 23, 42); }
         @Override protected JButton createDecreaseButton(int orientation) { return createZeroButton(); }
@@ -310,7 +331,6 @@ public class ServerFrame extends JFrame {
         private JButton createZeroButton() { JButton btn = new JButton(); btn.setPreferredSize(new Dimension(0, 0)); return btn; }
     }
 
-    // Class Ô Nhập Cổng (Port) Bo Góc
     class ModernTextField extends JTextField {
         public ModernTextField(String text) {
             super(text);
@@ -321,16 +341,15 @@ public class ServerFrame extends JFrame {
         protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(245, 247, 250)); // Nền xám nhạt
-            g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, 25, 25); // Độ bo tròn 25px
-            g2.setColor(new Color(200, 210, 220)); // Màu viền
+            g2.setColor(new Color(245, 247, 250)); 
+            g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, 25, 25); 
+            g2.setColor(new Color(200, 210, 220)); 
             g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, 25, 25);
             super.paintComponent(g);
             g2.dispose();
         }
     }
 
-    // Class Nút Bấm Bo Góc
     class ModernRoundedButton extends JButton {
         public ModernRoundedButton(String text) {
             super(text);
@@ -347,7 +366,7 @@ public class ServerFrame extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(getBackground());
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15); // Độ bo tròn 15px
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15); 
             super.paintComponent(g);
             g2.dispose();
         }
