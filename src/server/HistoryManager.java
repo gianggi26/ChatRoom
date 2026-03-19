@@ -4,7 +4,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -31,7 +30,6 @@ public class HistoryManager {
         List<String> history = new ArrayList<>();
         history.add("--- Gần đây nhất ---");
 
-        // CHỈ LẤY CÁC TIN NHẮN ĐƯỢC GỬI SAU THỜI ĐIỂM BẤM XÓA (last_cleared_at)
         String sql = "SELECT * FROM ( " +
                 "   SELECT TOP 50 c.message, c.created_at " +
                 "   FROM ChatHistory c " +
@@ -45,7 +43,6 @@ public class HistoryManager {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            // Truyền username vào câu lệnh SQL
             pstmt.setString(1, username);
 
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -87,7 +84,6 @@ public class HistoryManager {
                     }
                 }
             }
-
             ServerFrame.updateLog("INFO", "Nạp lịch sử cho [" + username + "]: Tổng " + countTotal + " tin (Bao gồm " + countPrivate + " tin riêng).");
 
         } catch (SQLException e) {
@@ -95,14 +91,44 @@ public class HistoryManager {
         }
         return history;
     }
-    // Thêm hàm này vào dưới cùng của class HistoryManager
-    public static void revokeMessage(String exactMessage) {
-        // Tìm và thu hồi tin nhắn mới nhất có nội dung trùng khớp
-        String sql = "UPDATE ChatHistory SET message = '🚫 Tin nhắn đã bị thu hồi' " +
-                "WHERE id = (SELECT TOP 1 id FROM ChatHistory WHERE message = ? ORDER BY id DESC)";
+
+    public static void revokeMessage(String targetMsg, String revoker) {
+        // 1. Loại bỏ thẻ thời gian
+        String originalMsg = targetMsg.replaceAll("\\[\\d{2}:\\d{2} [a-zA-Z]{2}\\] ", "");
+
+        // 2. Tái tạo lại chuỗi gốc trong DB
+        String dbSearchMsg = originalMsg;
+        if (originalMsg.startsWith("[Bạn -> ")) {
+            String receiver = originalMsg.substring(8, originalMsg.indexOf("]:"));
+            String content = originalMsg.substring(originalMsg.indexOf("]: ") + 3);
+            dbSearchMsg = "[PRIVATE]|" + revoker + "|" + receiver + "|" + content;
+        } else if (originalMsg.startsWith("[Tin riêng từ ")) {
+            String sender = originalMsg.substring(14, originalMsg.indexOf("]:"));
+            String content = originalMsg.substring(originalMsg.indexOf("]: ") + 3);
+            dbSearchMsg = "[PRIVATE]|" + sender + "|" + revoker + "|" + content;
+        }
+
+        // 3. Lấy Prefix để giữ lại TÊN NGƯỜI GỬI
+        String prefix = "";
+        if (dbSearchMsg.contains("|FILE_DATA|")) {
+            prefix = dbSearchMsg.substring(0, dbSearchMsg.indexOf("|FILE_DATA|")) + ": ";
+        } else if (dbSearchMsg.contains(": ") && !dbSearchMsg.startsWith("[")) {
+            prefix = dbSearchMsg.substring(0, dbSearchMsg.indexOf(": ") + 2);
+        } else if (dbSearchMsg.startsWith("[PRIVATE]|")) {
+            String[] parts = dbSearchMsg.split("\\|", 4);
+            if (parts.length >= 4) {
+                prefix = "[PRIVATE]|" + parts[1] + "|" + parts[2] + "|";
+            }
+        }
+
+        // 4. Mã hóa thu hồi
+        String newMsg = prefix + (revoker.equalsIgnoreCase("admin") ? "[REVOKED_BY_ADMIN]" : "[REVOKED]");
+
+        String sql = "UPDATE ChatHistory SET message = ? WHERE id = (SELECT TOP 1 id FROM ChatHistory WHERE message = ? ORDER BY id DESC)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, exactMessage);
+            pstmt.setString(1, newMsg);
+            pstmt.setString(2, dbSearchMsg);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             ServerFrame.updateLog("ERROR", "Lỗi thu hồi tin nhắn DB: " + e.getMessage());

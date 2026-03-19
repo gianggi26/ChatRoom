@@ -113,22 +113,18 @@ public class ClientHandler extends Thread {
                 }
                 else if (message.startsWith("REVOKE_MSG|")) {
                     String targetMsg = message.substring(11);
-
                     boolean canRevoke = false;
-                    // 1. Admin có quyền thu hồi mọi tin nhắn
+
                     if (this.username.equalsIgnoreCase("admin")) {
                         canRevoke = true;
-                    }
-                    // 2. Người dùng bình thường chỉ được thu hồi tin của chính mình
-                    else if (targetMsg.startsWith(this.username + ": ") || targetMsg.startsWith(this.username + "|FILE_DATA|")) {
+                    } else if (targetMsg.contains(this.username + ": ") || targetMsg.contains(this.username + "|FILE_DATA|") || targetMsg.contains("[Bạn -> ")) {
                         canRevoke = true;
                     }
 
                     if (canRevoke) {
-                        // Cập nhật Database
-                        HistoryManager.revokeMessage(targetMsg);
-                        // Ra lệnh cho toàn bộ Client ẩn tin nhắn này trên màn hình
-                        ClientManager.broadcast("REVOKE_UI|" + targetMsg);
+                        HistoryManager.revokeMessage(targetMsg, this.username);
+                        // Truyền thêm tên người thu hồi vào lệnh broadcast
+                        ClientManager.broadcast("REVOKE_UI|" + this.username + "|" + targetMsg);
                         ServerFrame.updateLog("WARN", this.username + " đã thu hồi một tin nhắn.");
                     } else {
                         sendMessage("🔴 Hệ thống: Bạn không có quyền thu hồi tin nhắn của người khác!");
@@ -136,7 +132,7 @@ public class ClientHandler extends Thread {
                 }
                 else if (message.equals("/clear_history")) {
                     UserManager.updateLastCleared(this.username);
-                }
+                    }
                 else if (message.startsWith("@")) {
                     int firstSpace = message.indexOf(" ");
                     if (firstSpace != -1) {
