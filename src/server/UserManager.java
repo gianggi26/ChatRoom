@@ -40,4 +40,32 @@ public class UserManager {
             return "❌ Lỗi SQL Register: " + e.getMessage();
         }
     }
+    // Thêm vào dưới cùng của class UserManager
+    public static boolean banUser(String username) {
+        String sql = "UPDATE Users SET is_banned = 1 WHERE username = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            int rows = pstmt.executeUpdate();
+            return rows > 0; // Trả về true nếu update thành công
+        } catch (SQLException e) {
+            ServerFrame.updateLog("ERROR", "Lỗi Ban User: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public static boolean isBanned(String username) {
+        String sql = "SELECT is_banned FROM Users WHERE username = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getBoolean("is_banned");
+            }
+        } catch (SQLException e) {
+            ServerFrame.updateLog("ERROR", "Lỗi kiểm tra Ban: " + e.getMessage());
+        }
+        return false;
+    }
 }

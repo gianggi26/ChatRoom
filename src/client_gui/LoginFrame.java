@@ -72,23 +72,9 @@ public class LoginFrame extends JFrame {
         configCard.add(createInputGroup("Cổng (Port):", txtPort));
         configCard.add(Box.createVerticalStrut(15));
         
-        // Dropdown Giao thức
-        JPanel protocolPanel = new JPanel(new BorderLayout());
-        protocolPanel.setOpaque(false);
-        JLabel lblProtocol = new JLabel("Giao thức:");
-        lblProtocol.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblProtocol.setForeground(new Color(71, 85, 105));
-        cbProtocol.setPreferredSize(new Dimension(100, 38));
-        cbProtocol.setBackground(Color.WHITE);
-        protocolPanel.add(lblProtocol, BorderLayout.NORTH);
-        protocolPanel.add(cbProtocol, BorderLayout.CENTER);
-        protocolPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
-        configCard.add(protocolPanel);
+
         
-        configCard.add(Box.createVerticalStrut(25));
-        JButton btnAdvanced = new JButton("Tùy chọn khác (Advanced)");
-        styleButton(btnAdvanced, bgNavy, Color.WHITE);
-        configCard.add(btnAdvanced);
+
 
         // --- THẺ PHẢI: ĐĂNG NHẬP ---
         CardPanel loginCard = new CardPanel();

@@ -87,4 +87,17 @@ public class HistoryManager {
         }
         return history;
     }
+    // Thêm hàm này vào dưới cùng của class HistoryManager
+    public static void revokeMessage(String exactMessage) {
+        // Tìm và thu hồi tin nhắn mới nhất có nội dung trùng khớp
+        String sql = "UPDATE ChatHistory SET message = '🚫 Tin nhắn đã bị thu hồi' " +
+                "WHERE id = (SELECT TOP 1 id FROM ChatHistory WHERE message = ? ORDER BY id DESC)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, exactMessage);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            ServerFrame.updateLog("ERROR", "Lỗi thu hồi tin nhắn DB: " + e.getMessage());
+        }
+    }
 }

@@ -71,6 +71,32 @@ public class ClientManager {
             }
         }
     }
+    // Thêm vào dưới hàm kickUser trong ClientManager
+    public static synchronized void banUser(String adminName, String targetName) {
+        // 1. Cập nhật Database
+        boolean dbSuccess = UserManager.banUser(targetName);
+        if (!dbSuccess) {
+            ServerFrame.updateLog("ERROR", "Không tìm thấy user '" + targetName + "' trong DB để BAN.");
+            return;
+        }
+
+        // 2. Tìm xem người đó có đang online không để Kick ra ngay lập tức
+        ClientHandler targetClient = null;
+        for (ClientHandler client : clients) {
+            if (client.getUsername().equalsIgnoreCase(targetName)) {
+                targetClient = client;
+                break;
+            }
+        }
+
+        if (targetClient != null) {
+            targetClient.sendMessage("KICKED|🚫 Tài khoản của bạn đã bị KHÓA VĨNH VIỄN bởi Admin!");
+            targetClient.disconnect();
+        }
+
+        broadcast("🚫 Hệ thống: Tài khoản [" + targetName + "] đã bị Admin KHÓA vĩnh viễn!");
+        ServerFrame.updateLog("WARN", "🚫 [ADMIN] " + adminName + " đã BAN " + targetName);
+    }
 
     public static synchronized void kickAll() {
         for (ClientHandler client : clients) {
