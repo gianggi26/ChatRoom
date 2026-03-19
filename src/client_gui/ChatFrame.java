@@ -46,9 +46,6 @@ public class ChatFrame extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // ==========================================
-        // 1. SIDEBAR
-        // ==========================================
         JPanel sidebar = new JPanel(new BorderLayout());
         sidebar.setPreferredSize(new Dimension(280, 0));
         sidebar.setBackground(bgSidebar);
@@ -75,9 +72,6 @@ public class ChatFrame extends JFrame {
         sidebar.add(sidebarHeader, BorderLayout.NORTH);
         sidebar.add(scrollSidebar, BorderLayout.CENTER);
 
-        // ==========================================
-        // 2. MAIN CHAT AREA
-        // ==========================================
         JPanel mainChatPanel = new JPanel(new BorderLayout());
         mainChatPanel.setBackground(bgMain);
 
@@ -115,9 +109,6 @@ public class ChatFrame extends JFrame {
         mainChatPanel.add(chatHeader, BorderLayout.NORTH);
         mainChatPanel.add(scrollChat, BorderLayout.CENTER);
 
-        // ==========================================
-        // 3. INPUT BAR
-        // ==========================================
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.setBackground(Color.WHITE);
         bottomPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
@@ -152,23 +143,19 @@ public class ChatFrame extends JFrame {
 
         mainChatPanel.add(bottomPanel, BorderLayout.SOUTH);
 
-        // --- RÁP LAYOUT ---
         add(sidebar, BorderLayout.WEST);
         add(mainChatPanel, BorderLayout.CENTER);
 
-        // --- SỰ KIỆN ---
         btnSend.addActionListener(e -> sendAction());
         inputField.addActionListener(e -> sendAction());
 
         userList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && userList.getSelectedValue() != null) {
                 String target = userList.getSelectedValue().replace(" (Admin)", "");
-
                 if (target.equalsIgnoreCase(currentUser)) {
                     userList.clearSelection();
                     return;
                 }
-
                 inputField.setText("@" + target + " ");
                 inputField.requestFocus();
             }
@@ -185,22 +172,18 @@ public class ChatFrame extends JFrame {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = img.createGraphics();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
         int hash = Math.abs(name.hashCode());
         Color bgColor = new Color((hash & 0xFF0000) >> 16, (hash & 0x00FF00) >> 8, hash & 0x0000FF).brighter();
-
         g2d.setColor(bgColor);
         g2d.fillOval(0, 0, size, size);
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Segoe UI", Font.BOLD, 20));
-
         String letter = name.length() > 0 ? name.substring(0, 1).toUpperCase() : "?";
         FontMetrics fm = g2d.getFontMetrics();
         int x = (size - fm.stringWidth(letter)) / 2;
         int y = ((size - fm.getHeight()) / 2) + fm.getAscent();
         g2d.drawString(letter, x, y);
         g2d.dispose();
-
         ImageIcon icon = new ImageIcon(img);
         userAvatars.put(name, icon);
         return icon;
@@ -245,7 +228,11 @@ public class ChatFrame extends JFrame {
                         JOptionPane.showMessageDialog(this, message.substring(7), "Ngắt kết nối", JOptionPane.ERROR_MESSAGE);
                         System.exit(0);
                     } else if (message.startsWith("REVOKE_UI|")) {
-                        String targetRawMsg = message.substring(10);
+                        String[] parts = message.split("\\|", 3);
+                        if (parts.length < 3) continue;
+                        String revoker = parts[1];
+                        String targetRawMsg = parts[2];
+
                         SwingUtilities.invokeLater(() -> {
                             Component[] comps = messagePanel.getComponents();
                             for (int i = comps.length - 1; i >= 0; i--) {
@@ -253,13 +240,14 @@ public class ChatFrame extends JFrame {
                                     JPanel row = (JPanel) comps[i];
                                     row.removeAll();
 
-                                    // --- BÓC TÁCH NGƯỜI GỬI ĐỂ CANH LỀ ---
                                     boolean isOwnMessage = false;
+                                    boolean isPrivate = false; // ĐÃ FIX: Biến xác định màu tím
                                     String senderName = "System";
                                     String headerText = "";
                                     String content = targetRawMsg;
 
                                     if (content.startsWith("[Tin riêng từ ")) {
+                                        isPrivate = true;
                                         int colonIdx = content.indexOf("]: ");
                                         if (colonIdx != -1) {
                                             senderName = content.substring(14, colonIdx);
@@ -267,22 +255,22 @@ public class ChatFrame extends JFrame {
                                         }
                                     } else if (content.startsWith("[Bạn -> ")) {
                                         isOwnMessage = true;
+                                        isPrivate = true; // ĐÃ FIX
                                         int colonIdx = content.indexOf("]: ");
                                         if (colonIdx != -1) {
                                             senderName = currentUser;
                                             String target = content.substring(8, colonIdx);
                                             headerText = " Gửi mật cho " + target;
                                         }
-                                    } else if (content.startsWith(currentUser + ": ")) {
-                                        isOwnMessage = true;
-                                        senderName = currentUser;
                                     } else if (content.contains(": ") && !content.startsWith("[")) {
                                         int colonIdx = content.indexOf(": ");
                                         senderName = content.substring(0, colonIdx);
+                                        if (senderName.equals(currentUser)) isOwnMessage = true;
                                         headerText = senderName;
                                     } else if (content.contains("|FILE_DATA|")) {
-                                        String[] parts = content.split("\\|FILE_DATA\\|");
-                                        senderName = parts[0].trim();
+                                        String[] fparts = content.split("\\|FILE_DATA\\|");
+                                        senderName = fparts[0].replace("[", "").replace("]", "").trim();
+                                        if (senderName.contains(" ")) senderName = senderName.substring(senderName.lastIndexOf(" ") + 1);
                                         if (senderName.equals(currentUser)) isOwnMessage = true;
                                         headerText = senderName;
                                     }
@@ -296,14 +284,22 @@ public class ChatFrame extends JFrame {
                                         }
                                     }
 
-                                    // --- TẠO BONG BÓNG THU HỒI ---
+                                    boolean isRevokedByAdmin = revoker.equalsIgnoreCase("admin") && !senderName.equalsIgnoreCase("admin");
                                     String cleanName = senderName.replace(" (Admin)", "");
-                                    String revokeText = isOwnMessage ? "Bạn đã thu hồi tin nhắn" : "" + cleanName + " đã thu hồi tin nhắn";
+                                    String revokeText;
+
+                                    if (isRevokedByAdmin) {
+                                        revokeText = "🚫 Quản trị viên đã gỡ tin nhắn này";
+                                    } else {
+                                        revokeText = isOwnMessage ? "🚫 Bạn đã thu hồi tin nhắn" : "🚫 " + cleanName + " đã thu hồi tin nhắn";
+                                    }
+
                                     JLabel lblRevoked = new JLabel(revokeText);
                                     lblRevoked.setFont(new Font("Segoe UI", Font.ITALIC, 14));
                                     lblRevoked.setForeground(isOwnMessage ? new Color(226, 232, 240) : new Color(156, 163, 175));
 
-                                    ChatBubble bubble = new ChatBubble(lblRevoked, isOwnMessage, false);
+                                    // ĐÃ FIX: Truyền isPrivate vào để tạo bong bóng màu Tím
+                                    ChatBubble bubble = new ChatBubble(lblRevoked, isOwnMessage, isPrivate);
 
                                     JLabel avatarLabel = new JLabel(generateAvatar(cleanName));
                                     avatarLabel.setBorder(new EmptyBorder(0, isOwnMessage ? 12 : 0, 0, isOwnMessage ? 0 : 12));
@@ -452,13 +448,20 @@ public class ChatFrame extends JFrame {
                 return;
             }
 
-            // KIỂM TRA XEM TIN NHẮN CÓ BỊ THU HỒI TRONG DATABASE KHÔNG
-            boolean isRevoked = content.equals("Tin nhắn đã bị thu hồi") || content.contains("đã bị thu hồi");
+            boolean isRevoked = content.equals("[REVOKED]");
+            boolean isRevokedByAdmin = content.equals("[REVOKED_BY_ADMIN]");
 
             JComponent contentComponent;
-            if (isRevoked) {
+            if (isRevoked || isRevokedByAdmin) {
                 String cleanName = senderName.replace(" (Admin)", "");
-                String revokeText = isOwnMessage ? "Bạn đã thu hồi tin nhắn" : "" + cleanName + " đã thu hồi tin nhắn";
+                String revokeText;
+
+                if (isRevokedByAdmin) {
+                    revokeText = "🚫 Quản trị viên đã gỡ tin nhắn này";
+                } else {
+                    revokeText = isOwnMessage ? "🚫 Bạn đã thu hồi tin nhắn" : "🚫 " + cleanName + " đã thu hồi tin nhắn";
+                }
+
                 JLabel lblRevoked = new JLabel(revokeText);
                 lblRevoked.setFont(new Font("Segoe UI", Font.ITALIC, 14));
                 lblRevoked.setForeground(isOwnMessage ? new Color(226, 232, 240) : new Color(156, 163, 175));
@@ -513,8 +516,7 @@ public class ChatFrame extends JFrame {
             timeRow.add(lblTime);
             bubbleContentWrapper.add(timeRow);
 
-            // Ẩn menu chuột phải nếu tin nhắn đã bị thu hồi từ trước
-            if (!isRevoked) {
+            if (!isRevoked && !isRevokedByAdmin) {
                 JPopupMenu popup = new JPopupMenu();
                 JMenuItem revokeItem = new JMenuItem("Thu hồi tin nhắn này");
                 revokeItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -712,10 +714,6 @@ public class ChatFrame extends JFrame {
             catch (Exception ex) { JOptionPane.showMessageDialog(this, "❌ Lỗi lưu file!"); }
         }
     }
-
-    // =========================================================
-    // CÁC CLASS ĐỒ HỌA UI COMPONENTS
-    // =========================================================
 
     class ChatBubble extends JPanel {
         private boolean isOwn;

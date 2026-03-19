@@ -18,10 +18,9 @@ public class ClientManager {
             client.sendMessage(message);
         }
         ServerFrame.updateLog("INFO", "[BROADCAST]: " + message);
-        
-        // --- TÍNH NĂNG MỚI: LƯU LỊCH SỬ CHAT ---
-        // Bỏ qua danh sách user online, bỏ qua file đính kèm và lệnh KICKED
-        if (!message.startsWith("LIST_USERS|") && !message.contains("|FILE_DATA|") && !message.startsWith("KICKED|")) {
+
+        // SỬA LỖI Ở ĐÂY: Thêm chặn lệnh REVOKE_UI để không bị lưu rác vào SQL
+        if (!message.startsWith("LIST_USERS|") && !message.contains("|FILE_DATA|") && !message.startsWith("KICKED|") && !message.startsWith("REVOKE_UI|")) {
             HistoryManager.saveMessage(message);
         }
     }
@@ -71,16 +70,14 @@ public class ClientManager {
             }
         }
     }
-    // Thêm vào dưới hàm kickUser trong ClientManager
+
     public static synchronized void banUser(String adminName, String targetName) {
-        // 1. Cập nhật Database
         boolean dbSuccess = UserManager.banUser(targetName);
         if (!dbSuccess) {
             ServerFrame.updateLog("ERROR", "Không tìm thấy user '" + targetName + "' trong DB để BAN.");
             return;
         }
 
-        // 2. Tìm xem người đó có đang online không để Kick ra ngay lập tức
         ClientHandler targetClient = null;
         for (ClientHandler client : clients) {
             if (client.getUsername().equalsIgnoreCase(targetName)) {

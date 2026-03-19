@@ -51,9 +51,7 @@ public class ClientHandler extends Thread {
                 if (command.equals("LOGIN") && parts.length == 3) {
                     String user = parts[1], pass = parts[2];
 
-                    // Phải kiểm tra đúng Tài khoản/Mật khẩu trước
                     if (UserManager.checkLogin(user, pass)) {
-                        // Nếu đúng Pass rồi mới kiểm tra xem có bị khóa không
                         if (UserManager.isBanned(user)) {
                             sendMessage("LOGIN_FAIL|🚫 Tài khoản của bạn đã bị KHÓA VĨNH VIỄN!");
                         } else if (ClientManager.isNameExist(user)) {
@@ -63,17 +61,14 @@ public class ClientHandler extends Thread {
                             isLoggedIn = true;
                             sendMessage("LOGIN_SUCCESS");
 
-                            // --- NẠP LỊCH SỬ CHO NGƯỜI VỪA VÀO ---
                             List<String> history = HistoryManager.getHistory(this.username);
                             if (!history.isEmpty()) {
                                 for (String msg : history) {
                                     sendMessage(msg);
                                 }
                             }
-                            // ----------------------------------------------------
                         }
                     } else {
-                        // Nếu sai tài khoản hoặc mật khẩu
                         sendMessage("LOGIN_FAIL|Sai tài khoản hoặc mật khẩu!");
                     }
                 }
@@ -123,8 +118,23 @@ public class ClientHandler extends Thread {
 
                     if (canRevoke) {
                         HistoryManager.revokeMessage(targetMsg, this.username);
-                        // Truyền thêm tên người thu hồi vào lệnh broadcast
+
+                        // SỬA LỖI ĐỒNG BỘ TIN MẬT: Báo cho người nhận xóa cái bong bóng của họ
+                        String otherSideMsg = "";
+                        if (targetMsg.startsWith("[Bạn -> ")) {
+                            String restOfMsg = targetMsg.substring(targetMsg.indexOf("]:") + 2);
+                            otherSideMsg = "[Tin riêng từ " + this.username + "]:" + restOfMsg;
+                        } else if (targetMsg.startsWith("[Tin riêng từ ")) {
+                            String restOfMsg = targetMsg.substring(targetMsg.indexOf("]:") + 2);
+                            otherSideMsg = "[Bạn -> " + this.username + "]:" + restOfMsg;
+                        }
+
                         ClientManager.broadcast("REVOKE_UI|" + this.username + "|" + targetMsg);
+
+                        if (!otherSideMsg.isEmpty()) {
+                            ClientManager.broadcast("REVOKE_UI|" + this.username + "|" + otherSideMsg);
+                        }
+
                         ServerFrame.updateLog("WARN", this.username + " đã thu hồi một tin nhắn.");
                     } else {
                         sendMessage("🔴 Hệ thống: Bạn không có quyền thu hồi tin nhắn của người khác!");
@@ -132,21 +142,17 @@ public class ClientHandler extends Thread {
                 }
                 else if (message.equals("/clear_history")) {
                     UserManager.updateLastCleared(this.username);
-                    }
+                }
                 else if (message.startsWith("@")) {
                     int firstSpace = message.indexOf(" ");
                     if (firstSpace != -1) {
                         String targetUser = message.substring(1, firstSpace);
                         String privateMsg = message.substring(firstSpace + 1);
 
-                        // Kiểm tra nếu gửi cho chính mình
                         if (targetUser.equalsIgnoreCase(this.username)) {
                             sendMessage("🔴 Hệ thống: Bạn không thể gửi tin nhắn riêng cho chính mình!");
                         } else {
-                            // 1. Gửi tin riêng qua ClientManager
                             ClientManager.sendPrivateMessage(username, targetUser, privateMsg);
-
-                            // 2. LƯU LỊCH SỬ TIN NHẮN RIÊNG VÀO DATABASE
                             HistoryManager.saveMessage("[PRIVATE]|" + this.username + "|" + targetUser + "|" + privateMsg);
                         }
 
@@ -163,7 +169,6 @@ public class ClientHandler extends Thread {
             }
 
         } catch (Exception e) {
-            // Không in lỗi ngắt kết nối đột ngột ra console để tránh rác log
         } finally {
             if (username != null) {
                 ClientManager.removeClient(this);
