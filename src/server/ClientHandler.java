@@ -134,6 +134,9 @@ public class ClientHandler extends Thread {
                         sendMessage("🔴 Hệ thống: Bạn không có quyền thu hồi tin nhắn của người khác!");
                     }
                 }
+                else if (message.equals("/clear_history")) {
+                    UserManager.updateLastCleared(this.username);
+                }
                 else if (message.startsWith("@")) {
                     int firstSpace = message.indexOf(" ");
                     if (firstSpace != -1) {

@@ -31,55 +31,63 @@ public class HistoryManager {
         List<String> history = new ArrayList<>();
         history.add("--- Gần đây nhất ---");
 
-        // CÂU LỆNH ĐÃ ĐƯỢC FIX: Lấy 50 tin nhắn MỚI NHẤT, sau đó sắp xếp lại theo thời gian
-        String sql = "SELECT * FROM (SELECT TOP 50 message, created_at FROM ChatHistory ORDER BY created_at DESC) AS sub ORDER BY created_at ASC";
+        // CHỈ LẤY CÁC TIN NHẮN ĐƯỢC GỬI SAU THỜI ĐIỂM BẤM XÓA (last_cleared_at)
+        String sql = "SELECT * FROM ( " +
+                "   SELECT TOP 50 c.message, c.created_at " +
+                "   FROM ChatHistory c " +
+                "   WHERE c.created_at > ISNULL((SELECT last_cleared_at FROM Users WHERE username = ?), '1900-01-01') " +
+                "   ORDER BY c.created_at DESC " +
+                ") AS sub ORDER BY created_at ASC";
 
         int countTotal = 0;
         int countPrivate = 0;
 
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a");
+            // Truyền username vào câu lệnh SQL
+            pstmt.setString(1, username);
 
-            while (rs.next()) {
-                countTotal++;
-                String msg = rs.getString("message");
-                Timestamp timeSql = rs.getTimestamp("created_at");
-                String timeStr = (timeSql != null) ? sdf.format(timeSql) : "";
+            try (ResultSet rs = pstmt.executeQuery()) {
+                SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a");
 
-                if (msg == null) continue;
+                while (rs.next()) {
+                    countTotal++;
+                    String msg = rs.getString("message");
+                    Timestamp timeSql = rs.getTimestamp("created_at");
+                    String timeStr = (timeSql != null) ? sdf.format(timeSql) : "";
 
-                // LỌC VÀ GIẢI MÃ TIN NHẮN RIÊNG
-                if (msg.startsWith("[PRIVATE]|")) {
-                    String[] parts = msg.split("\\|", 4);
-                    if (parts.length >= 4) {
-                        String sender = parts[1].trim();
-                        String receiver = parts[2].trim();
-                        String content = parts[3].trim();
+                    if (msg == null) continue;
 
-                        if (username.trim().equalsIgnoreCase(sender)) {
-                            history.add("[Bạn -> " + receiver + "]: [" + timeStr + "] " + content);
-                            countPrivate++;
-                        } else if (username.trim().equalsIgnoreCase(receiver)) {
-                            history.add("[Tin riêng từ " + sender + "]: [" + timeStr + "] " + content);
-                            countPrivate++;
+                    // LỌC VÀ GIẢI MÃ TIN NHẮN RIÊNG
+                    if (msg.startsWith("[PRIVATE]|")) {
+                        String[] parts = msg.split("\\|", 4);
+                        if (parts.length >= 4) {
+                            String sender = parts[1].trim();
+                            String receiver = parts[2].trim();
+                            String content = parts[3].trim();
+
+                            if (username.trim().equalsIgnoreCase(sender)) {
+                                history.add("[Bạn -> " + receiver + "]: [" + timeStr + "] " + content);
+                                countPrivate++;
+                            } else if (username.trim().equalsIgnoreCase(receiver)) {
+                                history.add("[Tin riêng từ " + sender + "]: [" + timeStr + "] " + content);
+                                countPrivate++;
+                            }
                         }
+                        continue;
                     }
-                    continue; // Bỏ qua xử lý tin chung
-                }
 
-                // XỬ LÝ TIN NHẮN CHUNG
-                if (msg.contains(": ") && !msg.startsWith("[")) {
-                    String[] parts = msg.split(": ", 2);
-                    history.add(parts[0] + ": [" + timeStr + "] " + parts[1]);
-                } else {
-                    history.add("[" + timeStr + "] " + msg);
+                    // XỬ LÝ TIN NHẮN CHUNG
+                    if (msg.contains(": ") && !msg.startsWith("[")) {
+                        String[] parts = msg.split(": ", 2);
+                        history.add(parts[0] + ": [" + timeStr + "] " + parts[1]);
+                    } else {
+                        history.add("[" + timeStr + "] " + msg);
+                    }
                 }
             }
-            
-            // In thông báo ra màn hình Server để bạn dễ theo dõi
+
             ServerFrame.updateLog("INFO", "Nạp lịch sử cho [" + username + "]: Tổng " + countTotal + " tin (Bao gồm " + countPrivate + " tin riêng).");
 
         } catch (SQLException e) {

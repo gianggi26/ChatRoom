@@ -68,4 +68,15 @@ public class UserManager {
         }
         return false;
     }
+    // Thêm hàm này vào dưới cùng của class UserManager
+    public static void updateLastCleared(String username) {
+        String sql = "UPDATE Users SET last_cleared_at = GETDATE() WHERE username = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            ServerFrame.updateLog("ERROR", "Lỗi cập nhật thời gian xóa: " + e.getMessage());
+        }
+    }
 }

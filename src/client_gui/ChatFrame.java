@@ -95,7 +95,7 @@ public class ChatFrame extends JFrame {
         chatHeader.add(chatTitle, BorderLayout.WEST);
 
         // --- Nút Xóa màn hình Chat ---
-        HoverIconButton btnClearChat = new HoverIconButton("Xóa màn hình");
+        HoverIconButton btnClearChat = new HoverIconButton("Xóa tin nhắn");
         btnClearChat.setForeground(new Color(239, 68, 68));
         btnClearChat.addActionListener(e -> {
             messagePanel.removeAll();
