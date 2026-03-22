@@ -629,8 +629,8 @@ public class ChatFrame extends JFrame {
         JFileChooser fileChooser = new JFileChooser();
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
-            if (file.length() > 5 * 1024 * 1024) {
-                JOptionPane.showMessageDialog(this, "Chỉ hỗ trợ file dưới 5MB.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+            if (file.length() > 50 * 1024 * 1024) {
+                JOptionPane.showMessageDialog(this, "Chỉ hỗ trợ file dưới 50MB.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             try {
