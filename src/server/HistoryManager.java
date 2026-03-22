@@ -56,7 +56,6 @@ public class HistoryManager {
 
                     if (msg == null) continue;
 
-                    // LỌC VÀ GIẢI MÃ TIN NHẮN RIÊNG
                     if (msg.startsWith("[PRIVATE]|")) {
                         String[] parts = msg.split("\\|", 4);
                         if (parts.length >= 4) {
@@ -75,8 +74,12 @@ public class HistoryManager {
                         continue;
                     }
 
-                    // XỬ LÝ TIN NHẮN CHUNG
-                    if (msg.contains(": ") && !msg.startsWith("[")) {
+                    // Xử lý nạp File Chung
+                    if (msg.contains("|FILE_DATA|")) {
+                        history.add("[" + timeStr + "] " + msg);
+                    }
+                    // Xử lý Tin nhắn Chung
+                    else if (msg.contains(": ") && !msg.startsWith("[")) {
                         String[] parts = msg.split(": ", 2);
                         history.add(parts[0] + ": [" + timeStr + "] " + parts[1]);
                     } else {
@@ -93,10 +96,8 @@ public class HistoryManager {
     }
 
     public static void revokeMessage(String targetMsg, String revoker) {
-        // 1. Loại bỏ thẻ thời gian
         String originalMsg = targetMsg.replaceAll("\\[\\d{2}:\\d{2} [a-zA-Z]{2}\\] ", "");
 
-        // 2. Tái tạo lại chuỗi gốc trong DB
         String dbSearchMsg = originalMsg;
         if (originalMsg.startsWith("[Bạn -> ")) {
             String receiver = originalMsg.substring(8, originalMsg.indexOf("]:"));
@@ -108,20 +109,19 @@ public class HistoryManager {
             dbSearchMsg = "[PRIVATE]|" + sender + "|" + revoker + "|" + content;
         }
 
-        // 3. Lấy Prefix để giữ lại TÊN NGƯỜI GỬI
+        // ĐẢO NGƯỢC THỨ TỰ ƯU TIÊN: Đọc [PRIVATE] trước để không bị dính dấu hai chấm
         String prefix = "";
-        if (dbSearchMsg.contains("|FILE_DATA|")) {
-            prefix = dbSearchMsg.substring(0, dbSearchMsg.indexOf("|FILE_DATA|")) + ": ";
-        } else if (dbSearchMsg.contains(": ") && !dbSearchMsg.startsWith("[")) {
-            prefix = dbSearchMsg.substring(0, dbSearchMsg.indexOf(": ") + 2);
-        } else if (dbSearchMsg.startsWith("[PRIVATE]|")) {
+        if (dbSearchMsg.startsWith("[PRIVATE]|")) {
             String[] parts = dbSearchMsg.split("\\|", 4);
             if (parts.length >= 4) {
                 prefix = "[PRIVATE]|" + parts[1] + "|" + parts[2] + "|";
             }
+        } else if (dbSearchMsg.contains("|FILE_DATA|")) {
+            prefix = dbSearchMsg.substring(0, dbSearchMsg.indexOf("|FILE_DATA|")) + ": ";
+        } else if (dbSearchMsg.contains(": ") && !dbSearchMsg.startsWith("[")) {
+            prefix = dbSearchMsg.substring(0, dbSearchMsg.indexOf(": ") + 2);
         }
 
-        // 4. Mã hóa thu hồi
         String newMsg = prefix + (revoker.equalsIgnoreCase("admin") ? "[REVOKED_BY_ADMIN]" : "[REVOKED]");
 
         String sql = "UPDATE ChatHistory SET message = ? WHERE id = (SELECT TOP 1 id FROM ChatHistory WHERE message = ? ORDER BY id DESC)";

@@ -72,6 +72,55 @@ public class ChatFrame extends JFrame {
         sidebar.add(sidebarHeader, BorderLayout.NORTH);
         sidebar.add(scrollSidebar, BorderLayout.CENTER);
 
+        if (currentUser.equalsIgnoreCase("admin")) {
+            JPanel adminPanel = new JPanel(new GridLayout(2, 1, 0, 10));
+            adminPanel.setBackground(bgSidebar);
+            adminPanel.setBorder(new EmptyBorder(10, 20, 20, 20));
+
+            ModernButton btnKick = new ModernButton("Xóa khỏi nhóm", new Color(245, 158, 11), new Color(217, 119, 6));
+            ModernButton btnBan = new ModernButton("Chặn khỏi nhóm", new Color(239, 68, 68), new Color(185, 28, 28));
+
+            btnKick.addActionListener(e -> {
+                String selected = userList.getSelectedValue();
+                if (selected == null) {
+                    JOptionPane.showMessageDialog(this, "Vui lòng bấm chọn một người trong danh sách để Xóa!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                String target = selected.replace(" (Admin)", "");
+                if (target.equalsIgnoreCase(currentUser)) {
+                    JOptionPane.showMessageDialog(this, "Bạn không thể tự xóa chính mình!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn Xóa [" + target + "] khỏi phòng?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    this.client.sendMessage("/kick " + target);
+                    userList.clearSelection();
+                }
+            });
+
+            btnBan.addActionListener(e -> {
+                String selected = userList.getSelectedValue();
+                if (selected == null) {
+                    JOptionPane.showMessageDialog(this, "Vui lòng bấm chọn một người trong danh sách để Chặn!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                String target = selected.replace(" (Admin)", "");
+                if (target.equalsIgnoreCase(currentUser)) {
+                    JOptionPane.showMessageDialog(this, "Bạn không thể tự chặn chính mình!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                int confirm = JOptionPane.showConfirmDialog(this, "CẢNH BÁO: Bạn có chắc muốn CHẶN VĨNH VIỄN [" + target + "] không?\nHọ sẽ không thể đăng nhập lại được nữa!", "Xác nhận chặn", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    this.client.sendMessage("/ban " + target);
+                    userList.clearSelection();
+                }
+            });
+
+            adminPanel.add(btnKick);
+            adminPanel.add(btnBan);
+            sidebar.add(adminPanel, BorderLayout.SOUTH);
+        }
+
         JPanel mainChatPanel = new JPanel(new BorderLayout());
         mainChatPanel.setBackground(bgMain);
 
@@ -153,7 +202,6 @@ public class ChatFrame extends JFrame {
             if (!e.getValueIsAdjusting() && userList.getSelectedValue() != null) {
                 String target = userList.getSelectedValue().replace(" (Admin)", "");
                 if (target.equalsIgnoreCase(currentUser)) {
-                    userList.clearSelection();
                     return;
                 }
                 inputField.setText("@" + target + " ");
@@ -172,18 +220,22 @@ public class ChatFrame extends JFrame {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = img.createGraphics();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
         int hash = Math.abs(name.hashCode());
         Color bgColor = new Color((hash & 0xFF0000) >> 16, (hash & 0x00FF00) >> 8, hash & 0x0000FF).brighter();
+
         g2d.setColor(bgColor);
         g2d.fillOval(0, 0, size, size);
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Segoe UI", Font.BOLD, 20));
+
         String letter = name.length() > 0 ? name.substring(0, 1).toUpperCase() : "?";
         FontMetrics fm = g2d.getFontMetrics();
         int x = (size - fm.stringWidth(letter)) / 2;
         int y = ((size - fm.getHeight()) / 2) + fm.getAscent();
         g2d.drawString(letter, x, y);
         g2d.dispose();
+
         ImageIcon icon = new ImageIcon(img);
         userAvatars.put(name, icon);
         return icon;
@@ -222,12 +274,15 @@ public class ChatFrame extends JFrame {
                 while ((message = this.client.getReader().readLine()) != null) {
                     if (message.startsWith("LIST_USERS|")) {
                         updateUserList(message.substring(11));
-                    } else if (message.contains("|FILE_DATA|")) {
-                        handleIncomingFile(message);
                     } else if (message.startsWith("KICKED|")) {
-                        JOptionPane.showMessageDialog(this, message.substring(7), "Ngắt kết nối", JOptionPane.ERROR_MESSAGE);
-                        System.exit(0);
-                    } else if (message.startsWith("REVOKE_UI|")) {
+                        String reason = message.substring(7);
+                        SwingUtilities.invokeLater(() -> {
+                            JOptionPane.showMessageDialog(ChatFrame.this, reason, "Ngắt kết nối", JOptionPane.ERROR_MESSAGE);
+                            System.exit(0);
+                        });
+                    }
+                    // SỬA LỖI Ở ĐÂY: Đưa REVOKE_UI lên trước để bắt trúng các file bị thu hồi
+                    else if (message.startsWith("REVOKE_UI|")) {
                         String[] parts = message.split("\\|", 3);
                         if (parts.length < 3) continue;
                         String revoker = parts[1];
@@ -241,7 +296,7 @@ public class ChatFrame extends JFrame {
                                     row.removeAll();
 
                                     boolean isOwnMessage = false;
-                                    boolean isPrivate = false; // ĐÃ FIX: Biến xác định màu tím
+                                    boolean isPrivate = false;
                                     String senderName = "System";
                                     String headerText = "";
                                     String content = targetRawMsg;
@@ -255,7 +310,7 @@ public class ChatFrame extends JFrame {
                                         }
                                     } else if (content.startsWith("[Bạn -> ")) {
                                         isOwnMessage = true;
-                                        isPrivate = true; // ĐÃ FIX
+                                        isPrivate = true;
                                         int colonIdx = content.indexOf("]: ");
                                         if (colonIdx != -1) {
                                             senderName = currentUser;
@@ -284,21 +339,21 @@ public class ChatFrame extends JFrame {
                                         }
                                     }
 
+                                    // ĐÃ LOẠI BỎ ICON 🚫
                                     boolean isRevokedByAdmin = revoker.equalsIgnoreCase("admin") && !senderName.equalsIgnoreCase("admin");
                                     String cleanName = senderName.replace(" (Admin)", "");
                                     String revokeText;
 
                                     if (isRevokedByAdmin) {
-                                        revokeText = "🚫 Quản trị viên đã gỡ tin nhắn này";
+                                        revokeText = "Quản trị viên đã gỡ tin nhắn này";
                                     } else {
-                                        revokeText = isOwnMessage ? "🚫 Bạn đã thu hồi tin nhắn" : "🚫 " + cleanName + " đã thu hồi tin nhắn";
+                                        revokeText = isOwnMessage ? "Bạn đã thu hồi tin nhắn" : cleanName + " đã thu hồi tin nhắn";
                                     }
 
                                     JLabel lblRevoked = new JLabel(revokeText);
                                     lblRevoked.setFont(new Font("Segoe UI", Font.ITALIC, 14));
                                     lblRevoked.setForeground(isOwnMessage ? new Color(226, 232, 240) : new Color(156, 163, 175));
 
-                                    // ĐÃ FIX: Truyền isPrivate vào để tạo bong bóng màu Tím
                                     ChatBubble bubble = new ChatBubble(lblRevoked, isOwnMessage, isPrivate);
 
                                     JLabel avatarLabel = new JLabel(generateAvatar(cleanName));
@@ -349,6 +404,10 @@ public class ChatFrame extends JFrame {
                                 }
                             }
                         });
+                    }
+                    // SAU ĐÓ MỚI ĐẾN FILE_DATA
+                    else if (message.contains("|FILE_DATA|")) {
+                        handleIncomingFile(message);
                     } else {
                         parseAndDisplayMessage(message);
                     }
@@ -456,10 +515,11 @@ public class ChatFrame extends JFrame {
                 String cleanName = senderName.replace(" (Admin)", "");
                 String revokeText;
 
+                // ĐÃ LOẠI BỎ ICON 🚫
                 if (isRevokedByAdmin) {
-                    revokeText = "🚫 Quản trị viên đã gỡ tin nhắn này";
+                    revokeText = "Quản trị viên đã gỡ tin nhắn này";
                 } else {
-                    revokeText = isOwnMessage ? "🚫 Bạn đã thu hồi tin nhắn" : "🚫 " + cleanName + " đã thu hồi tin nhắn";
+                    revokeText = isOwnMessage ? "Bạn đã thu hồi tin nhắn" : cleanName + " đã thu hồi tin nhắn";
                 }
 
                 JLabel lblRevoked = new JLabel(revokeText);
@@ -516,8 +576,10 @@ public class ChatFrame extends JFrame {
             timeRow.add(lblTime);
             bubbleContentWrapper.add(timeRow);
 
-            if (!isRevoked && !isRevokedByAdmin) {
+            boolean canRevoke = isOwnMessage || currentUser.equalsIgnoreCase("admin");
+            if (!isRevoked && !isRevokedByAdmin && canRevoke) {
                 JPopupMenu popup = new JPopupMenu();
+                // ĐÃ LOẠI BỎ ICON 🚫
                 JMenuItem revokeItem = new JMenuItem("Thu hồi tin nhắn này");
                 revokeItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
                 revokeItem.addActionListener(e -> {
@@ -585,9 +647,31 @@ public class ChatFrame extends JFrame {
         SwingUtilities.invokeLater(() -> {
             try {
                 String[] parts = message.split("\\|FILE_DATA\\|");
-                String senderInfo = parts[0];
+                String senderInfo = parts[0].trim();
                 String fileName = parts[1].split("\\|")[0];
                 String base64Data = parts[1].split("\\|")[1];
+
+                String timeStr = "";
+
+                // Trích xuất thời gian nếu là lịch sử nạp từ Database
+                if (senderInfo.contains("]: [")) {
+                    int timeStart = senderInfo.indexOf("]: [") + 4;
+                    int timeEnd = senderInfo.indexOf("]", timeStart);
+                    if (timeEnd != -1) {
+                        timeStr = senderInfo.substring(timeStart, timeEnd);
+                        senderInfo = senderInfo.substring(0, senderInfo.indexOf("]: [") + 1);
+                    }
+                } else if (senderInfo.startsWith("[")) {
+                    int endBracket = senderInfo.indexOf("]");
+                    if (endBracket != -1 && endBracket <= 12) {
+                        timeStr = senderInfo.substring(1, endBracket);
+                        senderInfo = senderInfo.substring(endBracket + 1).trim();
+                    }
+                }
+
+                if (timeStr.isEmpty()) {
+                    timeStr = new SimpleDateFormat("hh:mm a").format(new Date());
+                }
 
                 boolean isPrivate = senderInfo.contains("[Tin riêng từ ") || senderInfo.contains("[Bạn -> ");
                 boolean isOwnMessage = senderInfo.equals(currentUser) || senderInfo.contains("[Bạn -> ");
@@ -626,7 +710,7 @@ public class ChatFrame extends JFrame {
                 } else {
                     JPanel filePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
                     filePanel.setOpaque(false);
-                    JButton btnDownload = new JButton("💾 Tải file: " + fileName);
+                    JButton btnDownload = new JButton("Tải file: " + fileName);
                     btnDownload.setFont(new Font("Segoe UI", Font.BOLD, 13));
                     btnDownload.setFocusPainted(false);
                     btnDownload.setContentAreaFilled(false);
@@ -668,7 +752,6 @@ public class ChatFrame extends JFrame {
                 bubbleRow.add(bubble);
                 bubbleContentWrapper.add(bubbleRow);
 
-                String timeStr = new SimpleDateFormat("hh:mm a").format(new Date());
                 JLabel lblTime = new JLabel(timeStr);
                 lblTime.setFont(new Font("Segoe UI", Font.PLAIN, 10));
                 lblTime.setForeground(new Color(156, 163, 175));
@@ -678,20 +761,31 @@ public class ChatFrame extends JFrame {
                 bubbleContentWrapper.add(timeRow);
 
                 JPopupMenu popup = new JPopupMenu();
-                JMenuItem revokeItem = new JMenuItem("Thu hồi file này");
-                revokeItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                revokeItem.addActionListener(e -> {
-                    this.client.sendMessage("REVOKE_MSG|" + message);
-                });
-                popup.add(revokeItem);
 
-                bubbleContentWrapper.addMouseListener(new MouseAdapter() {
+                JMenuItem saveItem = new JMenuItem(isImage ? "Lưu ảnh về máy" : "Tải file về máy");
+                saveItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                saveItem.addActionListener(e -> saveFileLocally(fileName, decodedBytes));
+                popup.add(saveItem);
+
+                boolean canRevoke = isOwnMessage || currentUser.equalsIgnoreCase("admin");
+                if (canRevoke) {
+                    JMenuItem revokeItem = new JMenuItem(isImage ? "Thu hồi ảnh này" : "Thu hồi file này");
+                    revokeItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                    revokeItem.addActionListener(e -> {
+                        this.client.sendMessage("REVOKE_MSG|" + message);
+                    });
+                    popup.add(revokeItem);
+                }
+
+                MouseAdapter rightClickAdapter = new MouseAdapter() {
                     public void mouseReleased(MouseEvent e) {
                         if (SwingUtilities.isRightMouseButton(e)) {
                             popup.show(e.getComponent(), e.getX(), e.getY());
                         }
                     }
-                });
+                };
+                bubbleContentWrapper.addMouseListener(rightClickAdapter);
+                attachmentComp.addMouseListener(rightClickAdapter);
 
                 if (isOwnMessage) {
                     row.add(bubbleContentWrapper, BorderLayout.CENTER);

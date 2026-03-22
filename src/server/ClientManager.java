@@ -19,8 +19,8 @@ public class ClientManager {
         }
         ServerFrame.updateLog("INFO", "[BROADCAST]: " + message);
 
-        // SỬA LỖI Ở ĐÂY: Thêm chặn lệnh REVOKE_UI để không bị lưu rác vào SQL
-        if (!message.startsWith("LIST_USERS|") && !message.contains("|FILE_DATA|") && !message.startsWith("KICKED|") && !message.startsWith("REVOKE_UI|")) {
+        // ĐÃ SỬA: Cho phép lưu |FILE_DATA| vào Database, chỉ chặn lệnh rác
+        if (!message.startsWith("LIST_USERS|") && !message.startsWith("KICKED|") && !message.startsWith("REVOKE_UI|")) {
             HistoryManager.saveMessage(message);
         }
     }
