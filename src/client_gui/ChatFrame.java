@@ -220,22 +220,18 @@ public class ChatFrame extends JFrame {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = img.createGraphics();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
         int hash = Math.abs(name.hashCode());
         Color bgColor = new Color((hash & 0xFF0000) >> 16, (hash & 0x00FF00) >> 8, hash & 0x0000FF).brighter();
-
         g2d.setColor(bgColor);
         g2d.fillOval(0, 0, size, size);
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Segoe UI", Font.BOLD, 20));
-
         String letter = name.length() > 0 ? name.substring(0, 1).toUpperCase() : "?";
         FontMetrics fm = g2d.getFontMetrics();
         int x = (size - fm.stringWidth(letter)) / 2;
         int y = ((size - fm.getHeight()) / 2) + fm.getAscent();
         g2d.drawString(letter, x, y);
         g2d.dispose();
-
         ImageIcon icon = new ImageIcon(img);
         userAvatars.put(name, icon);
         return icon;
@@ -281,7 +277,6 @@ public class ChatFrame extends JFrame {
                             System.exit(0);
                         });
                     }
-                    // SỬA LỖI Ở ĐÂY: Đưa REVOKE_UI lên trước để bắt trúng các file bị thu hồi
                     else if (message.startsWith("REVOKE_UI|")) {
                         String[] parts = message.split("\\|", 3);
                         if (parts.length < 3) continue;
@@ -290,8 +285,17 @@ public class ChatFrame extends JFrame {
 
                         SwingUtilities.invokeLater(() -> {
                             Component[] comps = messagePanel.getComponents();
+
+                            // BỘ LỌC CẮT BỎ THỜI GIAN ĐỂ CHỐNG LỖI MISMTACH
+                            String cleanTarget = targetRawMsg.replaceAll("\\[\\d{2}:\\d{2} [a-zA-Z]{2}\\]\\s*", "").trim();
+
                             for (int i = comps.length - 1; i >= 0; i--) {
-                                if (targetRawMsg.equals(comps[i].getName())) {
+                                String rName = comps[i].getName();
+                                if (rName == null) continue;
+
+                                String cleanRow = rName.replaceAll("\\[\\d{2}:\\d{2} [a-zA-Z]{2}\\]\\s*", "").trim();
+
+                                if (cleanTarget.equals(cleanRow)) {
                                     JPanel row = (JPanel) comps[i];
                                     row.removeAll();
 
@@ -299,7 +303,7 @@ public class ChatFrame extends JFrame {
                                     boolean isPrivate = false;
                                     String senderName = "System";
                                     String headerText = "";
-                                    String content = targetRawMsg;
+                                    String content = cleanTarget;
 
                                     if (content.startsWith("[Tin riêng từ ")) {
                                         isPrivate = true;
@@ -330,16 +334,8 @@ public class ChatFrame extends JFrame {
                                         headerText = senderName;
                                     }
 
-                                    String timeStr = "";
-                                    if (content.contains("[")) {
-                                        int startBracket = content.indexOf("[");
-                                        int endBracket = content.indexOf("]", startBracket);
-                                        if (startBracket != -1 && endBracket != -1 && endBracket - startBracket <= 12) {
-                                            timeStr = content.substring(startBracket + 1, endBracket);
-                                        }
-                                    }
+                                    String timeStr = new SimpleDateFormat("hh:mm a").format(new Date());
 
-                                    // ĐÃ LOẠI BỎ ICON 🚫
                                     boolean isRevokedByAdmin = revoker.equalsIgnoreCase("admin") && !senderName.equalsIgnoreCase("admin");
                                     String cleanName = senderName.replace(" (Admin)", "");
                                     String revokeText;
@@ -405,7 +401,6 @@ public class ChatFrame extends JFrame {
                             }
                         });
                     }
-                    // SAU ĐÓ MỚI ĐẾN FILE_DATA
                     else if (message.contains("|FILE_DATA|")) {
                         handleIncomingFile(message);
                     } else {
@@ -515,7 +510,6 @@ public class ChatFrame extends JFrame {
                 String cleanName = senderName.replace(" (Admin)", "");
                 String revokeText;
 
-                // ĐÃ LOẠI BỎ ICON 🚫
                 if (isRevokedByAdmin) {
                     revokeText = "Quản trị viên đã gỡ tin nhắn này";
                 } else {
@@ -579,7 +573,6 @@ public class ChatFrame extends JFrame {
             boolean canRevoke = isOwnMessage || currentUser.equalsIgnoreCase("admin");
             if (!isRevoked && !isRevokedByAdmin && canRevoke) {
                 JPopupMenu popup = new JPopupMenu();
-                // ĐÃ LOẠI BỎ ICON 🚫
                 JMenuItem revokeItem = new JMenuItem("Thu hồi tin nhắn này");
                 revokeItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
                 revokeItem.addActionListener(e -> {
@@ -653,7 +646,6 @@ public class ChatFrame extends JFrame {
 
                 String timeStr = "";
 
-                // Trích xuất thời gian nếu là lịch sử nạp từ Database
                 if (senderInfo.contains("]: [")) {
                     int timeStart = senderInfo.indexOf("]: [") + 4;
                     int timeEnd = senderInfo.indexOf("]", timeStart);
